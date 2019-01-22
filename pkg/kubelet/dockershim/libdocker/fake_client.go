@@ -33,7 +33,7 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	dockerimagetypes "github.com/docker/docker/api/types/image"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
 )
 
@@ -579,6 +579,43 @@ func (f *FakeDockerClient) CreateContainer(c dockertypes.ContainerCreateConfig) 
 // StartContainer is a test-spy implementation of Interface.StartContainer.
 // It adds an entry "start" to the internal method call record.
 func (f *FakeDockerClient) StartContainer(id string) error {
+	f.Lock()
+	defer f.Unlock()
+	f.appendCalled(calledDetail{name: "start"})
+	if err := f.popError("start"); err != nil {
+		return err
+	}
+	f.appendContainerTrace("Started", id)
+	container, ok := f.ContainerMap[id]
+	if container.HostConfig.NetworkMode.IsContainer() {
+		hostContainerID := container.HostConfig.NetworkMode.ConnectedContainer()
+		found := false
+		for _, container := range f.RunningContainerList {
+			if container.ID == hostContainerID {
+				found = true
+			}
+		}
+		if !found {
+			return fmt.Errorf("failed to start container \"%s\": Error response from daemon: cannot join network of a non running container: %s", id, hostContainerID)
+		}
+	}
+	timestamp := f.Clock.Now()
+	if !ok {
+		container = convertFakeContainer(&FakeContainer{ID: id, Name: id, CreatedAt: timestamp})
+	}
+	container.State.Running = true
+	container.State.Pid = os.Getpid()
+	container.State.StartedAt = dockerTimestampToString(timestamp)
+	r := f.RandGenerator.Uint32()
+	container.NetworkSettings.IPAddress = fmt.Sprintf("10.%d.%d.%d", byte(r>>16), byte(r>>8), byte(r))
+	f.ContainerMap[id] = container
+	f.updateContainerStatus(id, StatusRunningPrefix)
+	f.normalSleep(200, 50, 50)
+	return nil
+}
+
+func (f *FakeDockerClient) RestoreContainer(id string, cpID string, cpDir string) error {
+	_, _ = cpID, cpDir
 	f.Lock()
 	defer f.Unlock()
 	f.appendCalled(calledDetail{name: "start"})

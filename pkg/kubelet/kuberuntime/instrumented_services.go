@@ -95,6 +95,15 @@ func (in instrumentedRuntimeService) StartContainer(containerID string) error {
 	return err
 }
 
+func (in instrumentedRuntimeService) RestoreContainer(containerID string,cpID string,cpDir string) error {
+	const operation = "start_container"
+	defer recordOperation(operation, time.Now())
+
+	err := in.service.RestoreContainer(containerID,cpID,cpDir)
+	recordError(operation, err)
+	return err
+}
+
 func (in instrumentedRuntimeService) StopContainer(containerID string, timeout int64) error {
 	const operation = "stop_container"
 	defer recordOperation(operation, time.Now())

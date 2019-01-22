@@ -166,6 +166,19 @@ func (d *kubeDockerClient) StartContainer(id string) error {
 	return err
 }
 
+func (d *kubeDockerClient) RestoreContainer(id string,cpID string,cpDir string) error {
+	ctx, cancel := d.getTimeoutContext()
+	defer cancel()
+	err := d.client.ContainerStart(ctx, id, dockertypes.ContainerStartOptions{
+					CheckpointID  : cpID,
+					CheckpointDir : cpDir,
+			})
+	if ctxErr := contextError(ctx); ctxErr != nil {
+			return ctxErr
+	}
+	return err
+}
+
 // Stopping an already stopped container will not cause an error in dockerapi.
 func (d *kubeDockerClient) StopContainer(id string, timeout time.Duration) error {
 	ctx, cancel := d.getCustomTimeoutContext(timeout)

@@ -51,6 +51,7 @@ service RuntimeService {
     // This call is idempotent, and must not return an error if the container has
     // already been stopped.
     // TODO: what must the runtime do after the grace period is reached?
+    rpc RestoreContainer(StartContainerRequest) returns (StartContainerResponse) {}
     rpc StopContainer(StopContainerRequest) returns (StopContainerResponse) {}
     // RemoveContainer removes the container. If the container is running, the
     // container must be forcibly removed.
